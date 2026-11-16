@@ -33,6 +33,7 @@ const data: NucData = {
   ],
   rates: [],
   allocations: [],
+  held: [],
 };
 
 describe('client accounts', () => {

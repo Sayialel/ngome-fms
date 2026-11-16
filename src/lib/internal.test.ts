@@ -18,7 +18,7 @@ const d: Pick<InternalData, 'accounts' | 'transactions' | 'entries' | 'recurring
     { id: 'r2', name: 'Instructors', amount_cents: 600000, frequency: 'monthly', account_id: 'exp', active: true, notes: null },
     { id: 'r3', name: 'Canva', amount_cents: 90000, frequency: 'occasional', account_id: 'sub', active: true, notes: null },
   ],
-  provisions: [{ id: 'p1', label: 'Fun Day', estimated_cents: 3000000, actual_cents: null, status: 'open', account_id: 'exp', notes: null, run_id: null }],
+  provisions: [{ id: 'p1', label: 'Fun Day', estimated_cents: 3000000, actual_cents: null, status: 'open', funded: true, account_id: 'exp', notes: null, run_id: null }],
 };
 
 describe('internal accounts', () => {

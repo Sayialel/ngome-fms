@@ -6,7 +6,7 @@ export interface Txn { id: string; txn_date: string; kind: string; description: 
 export interface Entry { id: string; transaction_id: string; account_id: string; amount_cents: Cents; explanation: string | null }
 export interface Expense { id: string; item: string; amount_cents: Cents; spent_on: string; account_id: string; category: string | null; pre_agreed: boolean; receipt_path: string | null; notes: string | null; run_id: string | null; is_legacy: boolean }
 export interface Recurring { id: string; name: string; amount_cents: Cents; frequency: 'monthly' | 'yearly' | 'occasional'; account_id: string; active: boolean; notes: string | null }
-export interface Provision { id: string; label: string; estimated_cents: Cents; actual_cents: Cents | null; status: 'open' | 'settled'; account_id: string | null; notes: string | null; run_id: string | null }
+export interface Provision { id: string; label: string; estimated_cents: Cents; actual_cents: Cents | null; status: 'open' | 'settled'; funded: boolean; account_id: string | null; notes: string | null; run_id: string | null }
 export interface Confirmation { id: string; account_id: string; as_of: string; actual_cents: Cents; system_cents: Cents; screenshot_path: string | null; note: string | null; confirmed_by: string | null; confirmed_at: string }
 
 export interface InternalData {

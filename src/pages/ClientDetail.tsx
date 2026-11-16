@@ -317,6 +317,8 @@ export default function ClientDetail() {
   const invoices = summariseInvoices(data).filter((i) => i.clientId === client.id);
   const billed = invoices.reduce((t, i) => t + i.amount, 0);
   const paid = invoices.reduce((t, i) => t + i.paid, 0);
+  const held = data.held.filter((h) => h.client_id === client.id);
+  const heldTotal = held.reduce((t, h) => t + h.amount_cents, 0);
 
   return (
     <>
@@ -325,12 +327,13 @@ export default function ClientDetail() {
       </Link>
       <PageHeader title={`${client.code} · ${client.name}`} description={client.kind === 'organisation' ? 'Organisation' : 'Family'} />
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {(
           [
             ['Billed', billed],
             ['Paid', paid],
             ['Outstanding', billed - paid],
+            [`Held for ${held.length} future session${held.length === 1 ? '' : 's'}`, heldTotal],
           ] as const
         ).map(([label, value]) => (
           <Card key={label}>

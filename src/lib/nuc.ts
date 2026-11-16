@@ -30,7 +30,7 @@ export async function syncNow() {
 
 export async function fetchNucData(): Promise<NucData> {
   const live = (table: string, columns = '*') => supabase.from(table).select(columns).eq('deleted_in_nuc', false);
-  const [profiles, links, cohorts, sessions, enrollments, invoices, invoiceParents, payments, clients, members, rates, allocations] = await Promise.all([
+  const [profiles, links, cohorts, sessions, enrollments, invoices, invoiceParents, payments, clients, members, rates, allocations, held] = await Promise.all([
     supabase.from('nuc_profiles').select('*'),
     live('nuc_parent_student_links', 'parent_id, student_id'),
     live('nuc_cohorts', 'id, name, is_active'),
@@ -42,9 +42,10 @@ export async function fetchNucData(): Promise<NucData> {
     supabase.from('clients').select('*').order('code'),
     supabase.from('client_members').select('*'),
     supabase.from('enrolment_rates').select('nuc_student_id, nuc_cohort_id, rate_cents, effective_from'),
-    supabase.from('payment_allocations').select('id, nuc_payment_id, nuc_invoice_id, client_id, stream, amount_cents, received_on, run_id, transaction_id, is_legacy'),
+    supabase.from('payment_allocations').select('id, nuc_payment_id, nuc_invoice_id, client_id, stream, amount_cents, received_on, run_id, transaction_id, is_legacy, session_ids, confirmed'),
+    supabase.from('held_sessions').select('client_id, amount_cents, session_date').is('released_in_run', null),
   ]);
-  const all = { profiles, links, cohorts, sessions, enrollments, invoices, invoiceParents, payments, clients, members, rates, allocations };
+  const all = { profiles, links, cohorts, sessions, enrollments, invoices, invoiceParents, payments, clients, members, rates, allocations, held };
   for (const r of Object.values(all)) if (r.error) throw r.error;
   return Object.fromEntries(Object.entries(all).map(([k, r]) => [k, r.data ?? []])) as unknown as NucData;
 }

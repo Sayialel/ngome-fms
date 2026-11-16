@@ -4,7 +4,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import CohortsTab from '@/components/CohortsTab';
-import ComingNext from '@/components/ComingNext';
 import InvoiceTable from '@/components/InvoiceTable';
 import PageHeader from '@/components/PageHeader';
 import PaymentsTab from '@/components/PaymentsTab';
@@ -240,13 +239,6 @@ export default function ClientAccounts() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      <div className="mt-6">
-        <ComingNext
-          phase="phase 5, with the disbursement run"
-          items={['Money held for sessions after a run date, and its release per session', 'Prepayment credit per client']}
-        />
-      </div>
 
       {creating && data && <NewClientDialog clients={data.clients} onClose={() => setCreating(false)} />}
     </>

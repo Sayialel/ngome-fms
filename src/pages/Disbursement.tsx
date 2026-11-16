@@ -1,45 +1,36 @@
 import { useQuery } from '@tanstack/react-query';
-import ComingNext from '@/components/ComingNext';
+import OnlineRun from '@/components/disbursement/OnlineRun';
+import PartnerAccounts from '@/components/disbursement/PartnerAccounts';
+import PhysicalRun from '@/components/disbursement/PhysicalRun';
+import RunHistory from '@/components/disbursement/RunHistory';
 import PageHeader from '@/components/PageHeader';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { fetchSettings, formatSetting, groupSettings, SETTINGS } from '@/lib/settings';
-
-const RULES = ['re_percent', 'partner_shares', 'physicals_ratio', 'physicals_pay_within_days', 'run_days', 'target_closing_balance_cents'];
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { fetchRunData } from '@/lib/disbursement-data';
 
 export default function Disbursement() {
-  const { data } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' });
-  const grouped = groupSettings(data ?? [], today);
+  const { data, isLoading, error } = useQuery({ queryKey: ['run-data'], queryFn: fetchRunData });
+  const physicalWaiting = data?.unrun.filter((a) => a.stream === 'physical').length ?? 0;
 
   return (
     <>
       <PageHeader title="Disbursement" description="Online and physical runs, partner accounts, history and export." />
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-xl">Rules in force today</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-2">
-          {RULES.map((key) => {
-            const meta = SETTINGS.find((s) => s.key === key)!;
-            const row = grouped.get(key)?.current;
-            return (
-              <div key={key}>
-                <p className="text-sm text-muted-foreground">{meta.label}</p>
-                <p className="tabular">{row ? formatSetting(meta.kind, row.value) : '—'}</p>
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
-      <ComingNext
-        phase="phase 5"
-        items={[
-          'Online zone: guided run laid out like the disbursement sheet',
-          'Physical zone: 2:1:1 split with due-date alerts',
-          'Partner accounts with run results, debts and history',
-          'Run history and CSV export of every movement between accounts',
-        ]}
-      />
+      {isLoading && <p className="text-muted-foreground">Loading…</p>}
+      {error && <p className="text-destructive">{(error as Error).message}</p>}
+      {data && (
+        <Tabs defaultValue="online">
+          <TabsList>
+            <TabsTrigger value="online">Online run</TabsTrigger>
+            <TabsTrigger value="physical">Physicals run{physicalWaiting ? ` (${physicalWaiting})` : ''}</TabsTrigger>
+            <TabsTrigger value="partners">Partner accounts</TabsTrigger>
+            <TabsTrigger value="history">History &amp; export</TabsTrigger>
+          </TabsList>
+          <TabsContent value="online"><Card><CardContent className="pt-6"><OnlineRun data={data} /></CardContent></Card></TabsContent>
+          <TabsContent value="physical"><Card><CardContent className="pt-6"><PhysicalRun data={data} /></CardContent></Card></TabsContent>
+          <TabsContent value="partners"><PartnerAccounts data={data} /></TabsContent>
+          <TabsContent value="history"><Card><CardContent className="pt-6"><RunHistory data={data} /></CardContent></Card></TabsContent>
+        </Tabs>
+      )}
     </>
   );
 }

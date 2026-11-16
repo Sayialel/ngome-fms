@@ -16,7 +16,7 @@ export interface NucInvoice {
 export interface NucInvoiceParent { invoice_id: string; parent_id: string }
 export interface NucPayment { id: string; invoice_id: string; amount: number | string; paid_on: string | null; method: string | null; reference: string | null }
 export type Stream = 'online' | 'physical' | 'entrusted' | 'credit';
-export interface Allocation { id: string; nuc_payment_id: string | null; nuc_invoice_id: string | null; client_id: string; stream: Stream; amount_cents: number; received_on: string; run_id: string | null; transaction_id: string | null; is_legacy: boolean }
+export interface Allocation { id: string; nuc_payment_id: string | null; nuc_invoice_id: string | null; client_id: string; stream: Stream; amount_cents: number; received_on: string; run_id: string | null; transaction_id: string | null; is_legacy: boolean; session_ids?: string[]; confirmed?: boolean }
 export interface Client { id: string; code: string; name: string; kind: 'family' | 'organisation'; notes: string | null; active: boolean }
 export interface ClientMember { id: string; client_id: string; nuc_profile_id: string; role: 'parent' | 'student' | 'contact' }
 export interface EnrolmentRate { nuc_student_id: string; nuc_cohort_id: string; rate_cents: number; effective_from: string }
@@ -25,6 +25,8 @@ export interface NucData {
   profiles: NucProfile[]; links: NucLink[]; cohorts: NucCohort[]; sessions: NucSession[]; enrollments: NucEnrollment[];
   invoices: NucInvoice[]; invoiceParents: NucInvoiceParent[]; payments: NucPayment[];
   clients: Client[]; members: ClientMember[]; rates: EnrolmentRate[]; allocations: Allocation[];
+  /** Money in the Holding Account for sessions that have not happened yet. */
+  held: { client_id: string; amount_cents: number; session_date: string }[];
 }
 
 export interface InvoiceSummary {
