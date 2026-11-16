@@ -7,6 +7,7 @@ import AppShell from '@/components/AppShell';
 import Login from '@/pages/Login';
 import NotAPartner from '@/pages/NotAPartner';
 import ClientAccounts from '@/pages/ClientAccounts';
+import ClientDetail from '@/pages/ClientDetail';
 import InternalAccounts from '@/pages/InternalAccounts';
 import Disbursement from '@/pages/Disbursement';
 import Settings from '@/pages/Settings';
@@ -29,6 +30,7 @@ function Gate() {
       <Route element={<AppShell />}>
         <Route index element={<Navigate to="/clients" replace />} />
         <Route path="/clients" element={<ClientAccounts />} />
+        <Route path="/clients/:id" element={<ClientDetail />} />
         <Route path="/internal" element={<InternalAccounts />} />
         <Route path="/disbursement" element={<Disbursement />} />
         <Route path="/settings" element={<Settings />} />

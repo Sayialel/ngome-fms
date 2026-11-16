@@ -84,7 +84,7 @@ The FMS never changes NUC data. Parents never use the FMS.
 
 | Area | Tables |
 |---|---|
-| People | `partners` (JMS, EL, EW; linked login), `clients` (CA-0001…, family or organisation), `client_members` (NUC parents/students in each client) |
+| People | `partners` (JMS, EL, EW; linked login), `clients` (CA-0001…, family or organisation), `client_members` (NUC parents/students in each client; a student belongs to one client and invoices follow the student billed, a parent can be in several) |
 | NUC mirrors | `nuc_profiles`, `nuc_cohorts`, `nuc_sessions`, `nuc_enrollments`, `nuc_invoices` (incl. line items + session dates), `nuc_invoice_parents`, `nuc_invoice_payments`, `nuc_payment_reports`, `sync_runs` |
 | Tracking | `invoice_tracking` (FMS status: draft, in review, problem, sent, part-paid, paid, closed + notes), `payment_allocations` (payment → invoice line, online/physical, amount), `held_sessions` (amount held per session, released by run), `enrolment_rates` (rate per student per cohort, with effective date, used by the client forecast) |
 | Ledger | `accounts` (Revenue, Holding, Expense, Subscriptions, partner payout accounts, external), `transactions` (date, kind, description, run, source), `entries` (transaction, account, signed amount, client, partner, explanation) |

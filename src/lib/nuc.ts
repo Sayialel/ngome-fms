@@ -1,23 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { toCents, type Cents } from '@/lib/engine/money';
-
-export interface InvoiceRow {
-  id: string;
-  ref: string | null;
-  billingDate: string | null;
-  student: string;
-  parents: string[];
-  cohort: string | null;
-  particulars: string | null;
-  amount: Cents;
-  paid: Cents;
-  balance: Cents;
-  status: 'paid' | 'part_paid' | 'unpaid';
-  /** Marked paid in the NUC with no payment recorded against it. */
-  paidWithoutRecord: boolean;
-  /** Has line items, so online and physical money can be told apart. */
-  hasLines: boolean;
-}
+import type { NucData } from '@/lib/clients';
 
 export interface SyncRun {
   started_at: string;
@@ -46,48 +28,22 @@ export async function syncNow() {
   return result;
 }
 
-export async function fetchInvoices(): Promise<InvoiceRow[]> {
-  const [invoices, profiles, links, payments, cohorts] = await Promise.all([
-    supabase.from('nuc_invoices').select('*').eq('deleted_in_nuc', false).order('billing_date', { ascending: false }),
-    supabase.from('nuc_profiles').select('id, full_name'),
-    supabase.from('nuc_invoice_parents').select('invoice_id, parent_id').eq('deleted_in_nuc', false),
-    supabase.from('nuc_invoice_payments').select('invoice_id, amount').eq('deleted_in_nuc', false),
-    supabase.from('nuc_cohorts').select('id, name'),
+export async function fetchNucData(): Promise<NucData> {
+  const live = (table: string, columns = '*') => supabase.from(table).select(columns).eq('deleted_in_nuc', false);
+  const [profiles, links, cohorts, sessions, enrollments, invoices, invoiceParents, payments, clients, members, rates] = await Promise.all([
+    supabase.from('nuc_profiles').select('*'),
+    live('nuc_parent_student_links', 'parent_id, student_id'),
+    live('nuc_cohorts', 'id, name, is_active'),
+    live('nuc_sessions', 'id, cohort_id, session_date'),
+    live('nuc_enrollments', 'student_id, cohort_id, status'),
+    live('nuc_invoices').order('billing_date', { ascending: false }),
+    live('nuc_invoice_parents', 'invoice_id, parent_id'),
+    live('nuc_invoice_payments', 'id, invoice_id, amount, paid_on, method, reference'),
+    supabase.from('clients').select('*').order('code'),
+    supabase.from('client_members').select('*'),
+    supabase.from('enrolment_rates').select('nuc_student_id, nuc_cohort_id, rate_cents, effective_from'),
   ]);
-  for (const r of [invoices, profiles, links, payments, cohorts]) if (r.error) throw r.error;
-
-  const name = new Map((profiles.data ?? []).map((p) => [p.id as string, p.full_name as string]));
-  const cohort = new Map((cohorts.data ?? []).map((c) => [c.id as string, c.name as string]));
-  const parentsOf = new Map<string, string[]>();
-  for (const l of links.data ?? []) {
-    const list = parentsOf.get(l.invoice_id) ?? [];
-    list.push(name.get(l.parent_id) ?? 'Unknown parent');
-    parentsOf.set(l.invoice_id, list);
-  }
-  const paidOf = new Map<string, Cents>();
-  for (const p of payments.data ?? []) paidOf.set(p.invoice_id, (paidOf.get(p.invoice_id) ?? 0) + toCents(p.amount));
-
-  return (invoices.data ?? []).map((i) => {
-    const amount = toCents(i.amount);
-    const recorded = paidOf.get(i.id) ?? 0;
-    const markedPaid = i.status === 'paid';
-    const paid = markedPaid ? Math.max(recorded, amount) : recorded;
-    const balance = Math.max(0, amount - paid);
-    const lines = (i.document as { lines?: unknown[] } | null)?.lines;
-    return {
-      id: i.id,
-      ref: i.invoice_ref,
-      billingDate: i.billing_date,
-      student: name.get(i.student_id) ?? 'Unknown student',
-      parents: parentsOf.get(i.id) ?? [],
-      cohort: i.cohort_id ? (cohort.get(i.cohort_id) ?? null) : null,
-      particulars: i.particulars,
-      amount,
-      paid,
-      balance,
-      status: balance === 0 ? 'paid' : paid > 0 ? 'part_paid' : 'unpaid',
-      paidWithoutRecord: markedPaid && recorded < amount,
-      hasLines: Array.isArray(lines) && lines.length > 0,
-    };
-  });
+  const all = { profiles, links, cohorts, sessions, enrollments, invoices, invoiceParents, payments, clients, members, rates };
+  for (const r of Object.values(all)) if (r.error) throw r.error;
+  return Object.fromEntries(Object.entries(all).map(([k, r]) => [k, r.data ?? []])) as unknown as NucData;
 }
