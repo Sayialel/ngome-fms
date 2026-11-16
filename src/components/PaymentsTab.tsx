@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { paymentItems, type NucData, type PaymentItem, type Stream } from '@/lib/clients';
 import { formatKES, toCents } from '@/lib/engine/money';
+import { fetchSettings } from '@/lib/settings';
 import { supabase } from '@/lib/supabase';
 
 const STREAMS: { key: Exclude<Stream, 'credit'>; label: string; help: string }[] = [
@@ -102,6 +103,35 @@ export default function PaymentsTab({ data }: { data: NucData }) {
   const items = paymentItems(data);
   const client = new Map(data.clients.map((c) => [c.id, c]));
   const pending = items.filter((i) => !i.confirmed);
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
+  const cutover = (settings?.find((r) => r.key === 'cutover_date')?.value as string | undefined) ?? null;
+  const beforeCutover = (i: PaymentItem) => !!cutover && !!i.date && i.date <= cutover;
+
+  // Money received before the FMS took over was already disbursed; note the split without touching the Revenue Account.
+  const markLegacy = useMutation({
+    mutationFn: async (i: PaymentItem) => {
+      const { error } = await supabase.from('payment_allocations').insert(
+        i.suggested.map((s) => ({
+          nuc_payment_id: i.paymentId, nuc_invoice_id: i.invoiceId, client_id: i.clientId, stream: s.stream, amount_cents: s.amount_cents,
+          received_on: i.date, confirmed: true, is_legacy: true, notes: 'Received and disbursed before the FMS cut-over',
+        })),
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Marked as handled before cut-over');
+      qc.invalidateQueries();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const undoLegacy = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.from('payment_allocations').delete().in('id', ids);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries(),
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const undo = useMutation({
     mutationFn: async (transactionId: string) => {
@@ -123,6 +153,7 @@ export default function PaymentsTab({ data }: { data: NucData }) {
         {pending.length === 0
           ? 'Every payment recorded in the NUC is confirmed.'
           : `${pending.length} payment${pending.length > 1 ? 's' : ''} to confirm. A disbursement run cannot be locked while any are waiting.`}
+        {cutover && ` Payments received on or before ${cutover} were disbursed before the FMS started: use “Before cut-over” so they don’t count twice.`}
       </p>
       <div className="overflow-x-auto">
         <Table>
@@ -159,19 +190,32 @@ export default function PaymentsTab({ data }: { data: NucData }) {
                 <TableCell className="tabular text-right">{formatKES(i.amount)}</TableCell>
                 <TableCell className="tabular text-sm">
                   {i.confirmed ? (
-                    i.confirmed.splits.map((s, n) => (
-                      <p key={n}>
-                        {STREAM_LABEL[s.stream]} {formatKES(s.amount_cents)}
-                      </p>
-                    ))
+                    <>
+                      {i.confirmed.splits.map((s, n) => (
+                        <p key={n}>
+                          {STREAM_LABEL[s.stream]} {formatKES(s.amount_cents)}
+                        </p>
+                      ))}
+                      {i.confirmed.legacy && <p className="text-xs text-muted-foreground">Before cut-over; not in the Revenue balance</p>}
+                    </>
                   ) : (
                     <Badge>To confirm</Badge>
                   )}
                 </TableCell>
                 <TableCell className="text-right">
+                  {!i.confirmed && beforeCutover(i) && (
+                    <Button size="sm" variant="outline" className="mr-2" disabled={!i.clientId || markLegacy.isPending} onClick={() => markLegacy.mutate(i)}>
+                      Before cut-over
+                    </Button>
+                  )}
                   {!i.confirmed && (
-                    <Button size="sm" disabled={!i.clientId} title={i.clientId ? undefined : 'Add this student to a client account first'} onClick={() => setConfirming(i)}>
+                    <Button size="sm" variant={beforeCutover(i) ? 'ghost' : 'default'} disabled={!i.clientId} title={i.clientId ? undefined : 'Add this student to a client account first'} onClick={() => setConfirming(i)}>
                       Confirm
+                    </Button>
+                  )}
+                  {i.confirmed?.legacy && !i.confirmed.inRun && (
+                    <Button size="sm" variant="ghost" disabled={undoLegacy.isPending} onClick={() => undoLegacy.mutate(i.confirmed!.allocationIds)}>
+                      Undo
                     </Button>
                   )}
                   {i.confirmed && !i.confirmed.inRun && i.confirmed.transactionId && (

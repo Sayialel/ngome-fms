@@ -78,9 +78,9 @@ describe('client accounts', () => {
     ]);
     const confirmed = paymentItems({
       ...data,
-      allocations: [{ id: 'a1', nuc_payment_id: 'pay1', nuc_invoice_id: 'i1', client_id: 'k1', stream: 'online', amount_cents: 50000, received_on: '2026-11-15', run_id: null, transaction_id: 't1' }],
+      allocations: [{ id: 'a1', nuc_payment_id: 'pay1', nuc_invoice_id: 'i1', client_id: 'k1', stream: 'online', amount_cents: 50000, received_on: '2026-11-15', run_id: null, transaction_id: 't1', is_legacy: false }],
     });
-    expect(confirmed[0].confirmed).toEqual({ transactionId: 't1', splits: [{ stream: 'online', amount_cents: 50000 }], inRun: false });
+    expect(confirmed[0].confirmed).toEqual({ transactionId: 't1', splits: [{ stream: 'online', amount_cents: 50000 }], inRun: false, legacy: false, allocationIds: ['a1'] });
   });
 
   it('suggests an online / physical split from the invoice lines (Mama Kimberly: 10,440 = 7,100 + 3,340)', () => {

@@ -16,7 +16,7 @@ export interface NucInvoice {
 export interface NucInvoiceParent { invoice_id: string; parent_id: string }
 export interface NucPayment { id: string; invoice_id: string; amount: number | string; paid_on: string | null; method: string | null; reference: string | null }
 export type Stream = 'online' | 'physical' | 'entrusted' | 'credit';
-export interface Allocation { id: string; nuc_payment_id: string | null; nuc_invoice_id: string | null; client_id: string; stream: Stream; amount_cents: number; received_on: string; run_id: string | null; transaction_id: string | null }
+export interface Allocation { id: string; nuc_payment_id: string | null; nuc_invoice_id: string | null; client_id: string; stream: Stream; amount_cents: number; received_on: string; run_id: string | null; transaction_id: string | null; is_legacy: boolean }
 export interface Client { id: string; code: string; name: string; kind: 'family' | 'organisation'; notes: string | null; active: boolean }
 export interface ClientMember { id: string; client_id: string; nuc_profile_id: string; role: 'parent' | 'student' | 'contact' }
 export interface EnrolmentRate { nuc_student_id: string; nuc_cohort_id: string; rate_cents: number; effective_from: string }
@@ -229,7 +229,11 @@ export interface PaymentItem {
   clientId: string | null; amount: Cents; date: string; method: string | null; reference: string | null;
   noRecord: boolean; hasLines: boolean; suggested: Split[];
   /** Set once confirmed in the FMS. */
-  confirmed: { transactionId: string | null; splits: { stream: Stream; amount_cents: Cents }[]; inRun: boolean } | null;
+  confirmed: {
+    transactionId: string | null; splits: { stream: Stream; amount_cents: Cents }[]; inRun: boolean;
+    /** Received before the FMS took over: already disbursed, so it never entered the Revenue Account here. */
+    legacy: boolean; allocationIds: string[];
+  } | null;
 }
 
 /** Split a payment across streams in proportion to the invoice's online and physical lines. */
@@ -258,7 +262,7 @@ export function paymentItems(d: NucData): PaymentItem[] {
   const confirmedFor = (match: (a: Allocation) => boolean): PaymentItem['confirmed'] => {
     const rows = d.allocations.filter(match);
     if (rows.length === 0) return null;
-    return { transactionId: rows[0].transaction_id, splits: rows.map((r) => ({ stream: r.stream, amount_cents: r.amount_cents })), inRun: rows.some((r) => r.run_id !== null) };
+    return { transactionId: rows[0].transaction_id, splits: rows.map((r) => ({ stream: r.stream, amount_cents: r.amount_cents })), inRun: rows.some((r) => r.run_id !== null), legacy: rows.some((r) => r.is_legacy), allocationIds: rows.map((r) => r.id) };
   };
   const base = (inv: NucInvoice) => ({
     invoiceId: inv.id, ref: inv.invoice_ref, student: profile.get(inv.student_id)?.full_name ?? 'Unknown student',

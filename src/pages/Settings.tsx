@@ -28,6 +28,8 @@ const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/N
 function ValueEditor({ meta, value, onChange }: { meta: SettingMeta; value: any; onChange: (v: any) => void }) {
   const num = (v: string) => (v === '' ? NaN : Number(v));
   switch (meta.kind) {
+    case 'date':
+      return <Input type="date" value={value} onChange={(e) => onChange(e.target.value)} />;
     case 'percent':
     case 'days':
     case 'day_of_month':

@@ -11,7 +11,7 @@ export interface SettingRow {
   created_at: string;
 }
 
-export type SettingKind = 'percent' | 'shares' | 'ratio' | 'days' | 'day_of_month' | 'rounding' | 'kes' | 'run_days';
+export type SettingKind = 'date' | 'percent' | 'shares' | 'ratio' | 'days' | 'day_of_month' | 'rounding' | 'kes' | 'run_days';
 
 export interface SettingMeta {
   key: string;
@@ -29,6 +29,7 @@ export const SETTINGS: SettingMeta[] = [
   { key: 'inr_rounding', label: 'INR rounding', help: 'Each partner’s INR is rounded down; the remainder stays in the Revenue Account.', kind: 'rounding', group: 'Disbursement' },
   { key: 'target_closing_balance_cents', label: 'Target closing balance', help: 'What should be left in the Revenue Account after an online run.', kind: 'kes', group: 'Disbursement' },
   { key: 'run_days', label: 'Disbursement days', help: 'Days of the month runs are due, e.g. 14 and month_end.', kind: 'run_days', group: 'Disbursement' },
+  { key: 'cutover_date', label: 'FMS cut-over date', help: 'Payments received on or before this date were disbursed before the FMS started.', kind: 'date', group: 'Disbursement' },
   { key: 'payment_window_days', label: 'Payment window', help: 'Days a parent has to pay after an invoice is sent before a reminder.', kind: 'days', group: 'Billing' },
   { key: 'invoice_raise_day', label: 'Invoices raised on', help: 'Day of the month next month’s invoices are raised.', kind: 'day_of_month', group: 'Billing' },
 ];
@@ -45,6 +46,8 @@ function pct(num: number, den: number) {
 
 export function formatSetting(kind: SettingKind, value: unknown): string {
   switch (kind) {
+    case 'date':
+      return String(value);
     case 'percent':
       return `${value}%`;
     case 'shares': {
@@ -72,6 +75,8 @@ export function formatSetting(kind: SettingKind, value: unknown): string {
 export function validateSetting(kind: SettingKind, value: unknown): string | null {
   const isWhole = (n: unknown) => typeof n === 'number' && Number.isInteger(n);
   switch (kind) {
+    case 'date':
+      return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? null : 'Choose a date';
     case 'percent':
       return typeof value === 'number' && value >= 0 && value <= 100 ? null : 'Enter a percentage between 0 and 100';
     case 'shares': {
