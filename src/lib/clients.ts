@@ -7,7 +7,7 @@ export interface NucLink { parent_id: string; student_id: string }
 export interface NucCohort { id: string; name: string; is_active: boolean | null }
 export interface NucSession { id: string; cohort_id: string; session_date: string }
 export interface NucEnrollment { student_id: string; cohort_id: string; status: string | null }
-export interface InvoiceLine { id: string; kind: 'online' | 'physical' | 'other'; cohort_id: string | null; cohort_name?: string; dates?: string[]; students?: number; unit_price?: number; amount?: number }
+export interface InvoiceLine { id: string; kind: 'online' | 'physical' | 'other'; cohort_id: string | null; session_ids?: string[]; cohort_name?: string; dates?: string[]; students?: number; unit_price?: number; amount?: number }
 export interface NucInvoice {
   id: string; student_id: string; cohort_id: string | null; particulars: string | null; invoice_ref: string | null;
   billing_date: string | null; amount: number | string; status: string | null; paid_at: string | null;
@@ -15,6 +15,8 @@ export interface NucInvoice {
 }
 export interface NucInvoiceParent { invoice_id: string; parent_id: string }
 export interface NucPayment { id: string; invoice_id: string; amount: number | string; paid_on: string | null; method: string | null; reference: string | null }
+export type Stream = 'online' | 'physical' | 'entrusted' | 'credit';
+export interface Allocation { id: string; nuc_payment_id: string | null; nuc_invoice_id: string | null; client_id: string; stream: Stream; amount_cents: number; received_on: string; run_id: string | null; transaction_id: string | null }
 export interface Client { id: string; code: string; name: string; kind: 'family' | 'organisation'; notes: string | null; active: boolean }
 export interface ClientMember { id: string; client_id: string; nuc_profile_id: string; role: 'parent' | 'student' | 'contact' }
 export interface EnrolmentRate { nuc_student_id: string; nuc_cohort_id: string; rate_cents: number; effective_from: string }
@@ -22,7 +24,7 @@ export interface EnrolmentRate { nuc_student_id: string; nuc_cohort_id: string; 
 export interface NucData {
   profiles: NucProfile[]; links: NucLink[]; cohorts: NucCohort[]; sessions: NucSession[]; enrollments: NucEnrollment[];
   invoices: NucInvoice[]; invoiceParents: NucInvoiceParent[]; payments: NucPayment[];
-  clients: Client[]; members: ClientMember[]; rates: EnrolmentRate[];
+  clients: Client[]; members: ClientMember[]; rates: EnrolmentRate[]; allocations: Allocation[];
 }
 
 export interface InvoiceSummary {
@@ -159,9 +161,12 @@ function invoicedPieces(inv: NucInvoice): { cohortId: string | null; month: stri
 }
 
 export function clientForecast(d: NucData, clientId: string, months: string[]): ForecastRow[] {
+  return forecastForStudents(d, d.members.filter((m) => m.client_id === clientId && m.role === 'student').map((m) => m.nuc_profile_id), months);
+}
+
+export function forecastForStudents(d: NucData, students: string[], months: string[]): ForecastRow[] {
   const profile = byId(d.profiles);
   const cohort = byId(d.cohorts);
-  const students = d.members.filter((m) => m.client_id === clientId && m.role === 'student').map((m) => m.nuc_profile_id);
   const summaries = new Map(summariseInvoices(d).map((s) => [s.id, s]));
   const rows: ForecastRow[] = [];
 
@@ -212,4 +217,95 @@ export function clientForecast(d: NucData, clientId: string, months: string[]): 
     }
   }
   return rows.sort((a, b) => a.student.localeCompare(b.student) || a.cohort.localeCompare(b.cohort));
+}
+
+// ---------------------------------------------------------------- payments to confirm
+
+export interface Split { stream: Stream; amount_cents: Cents; line_id?: string; session_ids?: string[] }
+
+export interface PaymentItem {
+  /** Stable key: the NUC payment id, or "invoice:<id>" for an invoice marked paid with no payment recorded. */
+  key: string; invoiceId: string; paymentId: string | null; ref: string | null; student: string;
+  clientId: string | null; amount: Cents; date: string; method: string | null; reference: string | null;
+  noRecord: boolean; hasLines: boolean; suggested: Split[];
+  /** Set once confirmed in the FMS. */
+  confirmed: { transactionId: string | null; splits: { stream: Stream; amount_cents: Cents }[]; inRun: boolean } | null;
+}
+
+/** Split a payment across streams in proportion to the invoice's online and physical lines. */
+export function suggestSplit(inv: NucInvoice, amount: Cents): Split[] {
+  const lines = inv.document?.lines ?? [];
+  const totals = { online: 0, physical: 0 };
+  const sessions: string[] = [];
+  for (const l of lines) {
+    const students = Math.max(1, Number(l.students) || 1);
+    const value = l.kind === 'other' ? toCents(l.amount ?? 0) : toCents((l.dates?.length ?? 0) * (l.unit_price ?? 0) * students);
+    totals[l.kind === 'physical' ? 'physical' : 'online'] += value;
+    if (l.kind === 'online') sessions.push(...(l.session_ids ?? []));
+  }
+  const whole = totals.online + totals.physical;
+  if (whole === 0) return [{ stream: 'online', amount_cents: amount }];
+  const physical = Math.round((amount * totals.physical) / whole);
+  const splits: Split[] = [{ stream: 'online', amount_cents: amount - physical, session_ids: sessions }];
+  if (physical > 0) splits.push({ stream: 'physical', amount_cents: physical });
+  return splits.filter((s) => s.amount_cents > 0);
+}
+
+export function paymentItems(d: NucData): PaymentItem[] {
+  const profile = byId(d.profiles);
+  const clientOf = studentClientMap(d.members);
+  const invoice = byId(d.invoices);
+  const confirmedFor = (match: (a: Allocation) => boolean): PaymentItem['confirmed'] => {
+    const rows = d.allocations.filter(match);
+    if (rows.length === 0) return null;
+    return { transactionId: rows[0].transaction_id, splits: rows.map((r) => ({ stream: r.stream, amount_cents: r.amount_cents })), inRun: rows.some((r) => r.run_id !== null) };
+  };
+  const base = (inv: NucInvoice) => ({
+    invoiceId: inv.id, ref: inv.invoice_ref, student: profile.get(inv.student_id)?.full_name ?? 'Unknown student',
+    clientId: clientOf.get(inv.student_id) ?? null, hasLines: (inv.document?.lines?.length ?? 0) > 0,
+  });
+  const items: PaymentItem[] = [];
+  const recorded = new Map<string, Cents>();
+
+  for (const p of d.payments) {
+    const inv = invoice.get(p.invoice_id);
+    if (!inv) continue;
+    const amount = toCents(p.amount);
+    recorded.set(inv.id, (recorded.get(inv.id) ?? 0) + amount);
+    items.push({
+      ...base(inv), key: p.id, paymentId: p.id, amount, date: p.paid_on ?? inv.billing_date ?? '', method: p.method, reference: p.reference,
+      noRecord: false, suggested: suggestSplit(inv, amount), confirmed: confirmedFor((a) => a.nuc_payment_id === p.id),
+    });
+  }
+  for (const inv of d.invoices) {
+    const gap = inv.status === 'paid' ? toCents(inv.amount) - (recorded.get(inv.id) ?? 0) : 0;
+    if (gap <= 0) continue;
+    items.push({
+      ...base(inv), key: `invoice:${inv.id}`, paymentId: null, amount: gap, date: (inv.paid_at ?? inv.billing_date ?? '').slice(0, 10), method: null, reference: null,
+      noRecord: true, suggested: suggestSplit(inv, gap), confirmed: confirmedFor((a) => a.nuc_payment_id === null && a.nuc_invoice_id === inv.id),
+    });
+  }
+  return items.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+// ---------------------------------------------------------------- cohort view
+
+export interface CohortRow { cohortId: string; cohort: string; students: number; missingRates: number; cells: { month: string; expected: Cents; invoiced: Cents; paid: Cents; outstanding: Cents }[] }
+
+export function cohortSummary(d: NucData, months: string[]): CohortRow[] {
+  const students = [...new Set(d.enrollments.filter((e) => e.status === 'active').map((e) => e.student_id))];
+  const byCohort = new Map<string, ForecastRow[]>();
+  for (const r of forecastForStudents(d, students, months)) byCohort.set(r.cohortId, [...(byCohort.get(r.cohortId) ?? []), r]);
+  return [...byCohort.entries()]
+    .map(([cohortId, rows]) => ({
+      cohortId, cohort: rows[0].cohort, students: rows.length, missingRates: rows.filter((r) => r.rate === null).length,
+      cells: months.map((month, i) => ({
+        month,
+        expected: rows.reduce((t, r) => t + (r.cells[i].expected ?? 0), 0),
+        invoiced: rows.reduce((t, r) => t + r.cells[i].invoiced, 0),
+        paid: rows.reduce((t, r) => t + r.cells[i].paid, 0),
+        outstanding: rows.reduce((t, r) => t + r.cells[i].outstanding, 0),
+      })),
+    }))
+    .sort((a, b) => a.cohort.localeCompare(b.cohort));
 }

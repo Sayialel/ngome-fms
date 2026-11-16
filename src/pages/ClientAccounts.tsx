@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import CohortsTab from '@/components/CohortsTab';
 import ComingNext from '@/components/ComingNext';
 import InvoiceTable from '@/components/InvoiceTable';
 import PageHeader from '@/components/PageHeader';
+import PaymentsTab from '@/components/PaymentsTab';
 import SyncButton from '@/components/SyncButton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNucData } from '@/hooks/useNucData';
-import { studentClientMap, summariseInvoices, totalsByClient, type Client } from '@/lib/clients';
+import { paymentItems, studentClientMap, summariseInvoices, totalsByClient, type Client } from '@/lib/clients';
 import { formatKES } from '@/lib/engine/money';
 import { supabase } from '@/lib/supabase';
 
@@ -100,6 +102,7 @@ export default function ClientAccounts() {
   const assigned = data ? studentClientMap(data.members) : new Map<string, string>();
   const unassignedStudents = (data?.profiles ?? []).filter((p) => p.roles.includes('student') && !p.deleted_in_nuc && !assigned.has(p.id));
   const profile = new Map((data?.profiles ?? []).map((p) => [p.id, p]));
+  const toConfirm = data ? paymentItems(data).filter((i) => !i.confirmed).length : 0;
 
   return (
     <>
@@ -133,7 +136,9 @@ export default function ClientAccounts() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <TabsList>
             <TabsTrigger value="clients">Clients ({data?.clients.length ?? 0})</TabsTrigger>
+            <TabsTrigger value="payments">Payments to confirm ({toConfirm})</TabsTrigger>
             <TabsTrigger value="invoices">Invoices ({invoices.length})</TabsTrigger>
+            <TabsTrigger value="cohorts">Cohorts</TabsTrigger>
             <TabsTrigger value="unassigned">Unassigned students ({unassignedStudents.length})</TabsTrigger>
           </TabsList>
           <Button size="sm" onClick={() => setCreating(true)} disabled={!data}>
@@ -192,6 +197,18 @@ export default function ClientAccounts() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="payments">
+          <Card>
+            <CardContent className="pt-6">{data && <PaymentsTab data={data} />}</CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="cohorts">
+          <Card>
+            <CardContent className="pt-6">{data && <CohortsTab data={data} />}</CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="invoices">
           <Card>
             <CardContent className="pt-6">
@@ -226,12 +243,8 @@ export default function ClientAccounts() {
 
       <div className="mt-6">
         <ComingNext
-          phase="the next step of phase 3"
-          items={[
-            'Payments to confirm, split into online, physical and held sessions',
-            'Prepayment credit and held money per client',
-            'Cohort view: expected, invoiced, collected, outstanding',
-          ]}
+          phase="phase 5, with the disbursement run"
+          items={['Money held for sessions after a run date, and its release per session', 'Prepayment credit per client']}
         />
       </div>
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clientForecast, clientStatement, monthsFrom, summariseInvoices, totalsByClient, type NucData } from './clients';
+import { clientForecast, clientStatement, cohortSummary, monthsFrom, paymentItems, suggestSplit, summariseInvoices, totalsByClient, type NucData } from './clients';
 
 const data: NucData = {
   profiles: [
@@ -32,6 +32,7 @@ const data: NucData = {
     { id: 'm2', client_id: 'k1', nuc_profile_id: 's1', role: 'student' },
   ],
   rates: [],
+  allocations: [],
 };
 
 describe('client accounts', () => {
@@ -67,5 +68,42 @@ describe('client accounts', () => {
 
   it('rolls months over the year end', () => {
     expect(monthsFrom('2026-11', 3)).toEqual(['2026-11', '2026-12', '2027-01']);
+  });
+
+  it('lists payments to confirm, including invoices marked paid with no payment recorded', () => {
+    const items = paymentItems(data);
+    expect(items.map((i) => [i.key, i.amount / 100, i.noRecord, i.confirmed])).toEqual([
+      ['pay1', 500, false, null],
+      ['invoice:i2', 1500, true, null],
+    ]);
+    const confirmed = paymentItems({
+      ...data,
+      allocations: [{ id: 'a1', nuc_payment_id: 'pay1', nuc_invoice_id: 'i1', client_id: 'k1', stream: 'online', amount_cents: 50000, received_on: '2026-11-15', run_id: null, transaction_id: 't1' }],
+    });
+    expect(confirmed[0].confirmed).toEqual({ transactionId: 't1', splits: [{ stream: 'online', amount_cents: 50000 }], inRun: false });
+  });
+
+  it('suggests an online / physical split from the invoice lines (Mama Kimberly: 10,440 = 7,100 + 3,340)', () => {
+    const inv = {
+      ...data.invoices[0],
+      amount: 10440,
+      document: {
+        lines: [
+          { id: 'a', kind: 'online' as const, cohort_id: 'c1', dates: ['2026-11-03', '2026-11-10'], students: 1, unit_price: 3550, session_ids: ['x1', 'x2'] },
+          { id: 'b', kind: 'physical' as const, cohort_id: 'c1', dates: ['2026-11-07'], students: 1, unit_price: 3340 },
+        ],
+      },
+    };
+    expect(suggestSplit(inv, 1044000)).toEqual([
+      { stream: 'online', amount_cents: 710000, session_ids: ['x1', 'x2'] },
+      { stream: 'physical', amount_cents: 334000 },
+    ]);
+    expect(suggestSplit(data.invoices[1], 150000)).toEqual([{ stream: 'online', amount_cents: 150000 }]);
+  });
+
+  it('summarises by cohort', () => {
+    const [row] = cohortSummary(data, monthsFrom('2026-11', 1));
+    expect(row).toMatchObject({ cohort: 'Cohort A', students: 1, missingRates: 0 });
+    expect(row.cells[0]).toEqual({ month: '2026-11', expected: 200000, invoiced: 100000, paid: 50000, outstanding: 50000 });
   });
 });
