@@ -137,9 +137,11 @@ All tables are locked down so only signed-in partners can read them; only EL can
 | Current Balance Calculator (1) and (2) | 10 | Historical runs (legacy) |
 | Cashflow / Program Cashflow schedules | 17 | Not imported (replaced by NUC enrolments and sessions) |
 
-- History is imported **as it happened**, marked legacy, and not recalculated (older rows used 40/25/20/5 with WH).
-- Rows with missing refs or dates go to a review screen before saving.
-- New rules apply from the cut-over date. Opening balances come from the last run (14 Oct 2026 closing balance 2,822.22; Holding 16,000) updated by the 11 Nov sheet, confirmed by each account owner.
+- History is imported **as it happened**, marked "From Notion", and not recalculated (older rows used 40/25/20/5 with WH). It never touches the ledger or account balances.
+- The import runs in the app (History from Notion → Import): choose the exported CSV files, check the summary and the rows flagged for a look, then import. Importing the same files again adds nothing twice.
+- Invoices go to `legacy_invoices`, money received to `legacy_entries`, expenses to `expenses` (legacy), balancing runs to `disbursement_runs` (legacy). The Cashflow schedules are not imported.
+- Clients are matched from the named client account, the invoice ref prefix, the linked invoices, then the parents and children mentioned in the label ("Mama Zia"). Any row's client can be changed afterwards.
+- New rules apply from the cut-over date (11 Nov 2026). Opening balances come from the 11 Nov 2026 disbursement sheet.
 
 ---
 

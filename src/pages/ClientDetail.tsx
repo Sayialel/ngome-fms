@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, X } from 'lucide-react';
 import { toast } from 'sonner';
 import InvoiceTable from '@/components/InvoiceTable';
@@ -59,6 +59,66 @@ function Statement({ data, clientId }: { data: NucData; clientId: string }) {
           ))}
         </TableBody>
       </Table>
+    </div>
+  );
+}
+
+function NotionHistory({ clientId }: { clientId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['archive', clientId],
+    queryFn: async () => {
+      const [inv, ent] = await Promise.all([
+        supabase.from('legacy_invoices').select('*').eq('client_id', clientId).order('billing_date', { ascending: false, nullsFirst: false }),
+        supabase.from('legacy_entries').select('*').eq('client_id', clientId).order('received_on', { ascending: false, nullsFirst: false }),
+      ]);
+      if (inv.error) throw inv.error;
+      if (ent.error) throw ent.error;
+      return { invoices: inv.data, entries: ent.data };
+    },
+  });
+  if (isLoading) return <p className="text-muted-foreground">Loading…</p>;
+  if (!data || data.invoices.length + data.entries.length === 0) return <p className="text-muted-foreground">Nothing imported from Notion for this client.</p>;
+  const billed = data.invoices.reduce((t, i) => t + i.amount_cents, 0);
+  const received = data.invoices.filter((i) => i.received_on).reduce((t, i) => t + i.amount_cents, 0);
+  return (
+    <div className="space-y-6">
+      <p className="tabular text-sm text-muted-foreground">
+        Billed in Notion: KES {formatKES(billed)} · marked received: KES {formatKES(received)} · not marked received: KES {formatKES(billed - received)}. These records are not part of the balances above.
+      </p>
+      {data.invoices.length > 0 && (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader><TableRow><TableHead>Billed</TableHead><TableHead>Ref</TableHead><TableHead>Particulars</TableHead><TableHead>Received</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {data.invoices.map((i) => (
+                <TableRow key={i.id}>
+                  <TableCell className="tabular whitespace-nowrap">{i.billing_date ?? '—'}</TableCell>
+                  <TableCell className="whitespace-nowrap">{i.invoice_ref ?? '—'}</TableCell>
+                  <TableCell>{i.particulars}</TableCell>
+                  <TableCell className="tabular whitespace-nowrap">{i.received_on ?? 'Not marked received'}</TableCell>
+                  <TableCell className="tabular text-right">{formatKES(i.amount_cents)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+      {data.entries.length > 0 && (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader><TableRow><TableHead>Received</TableHead><TableHead>Money received</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {data.entries.map((e) => (
+                <TableRow key={e.id}>
+                  <TableCell className="tabular whitespace-nowrap">{e.received_on ?? '—'}</TableCell>
+                  <TableCell>{e.label}{e.stream === 'physical' ? ' (physical)' : ''}</TableCell>
+                  <TableCell className="tabular text-right">{formatKES(e.amount_cents)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }
@@ -353,6 +413,7 @@ export default function ClientDetail() {
           <TabsTrigger value="forecast">Forecast</TabsTrigger>
           <TabsTrigger value="invoices">Invoices ({invoices.length})</TabsTrigger>
           <TabsTrigger value="members">Parents &amp; students</TabsTrigger>
+          <TabsTrigger value="notion">Before the FMS</TabsTrigger>
         </TabsList>
         {(
           [
@@ -360,6 +421,7 @@ export default function ClientDetail() {
             ['forecast', 'Forecast', <Forecast data={data} clientId={client.id} />],
             ['invoices', 'Invoices', <InvoiceTable rows={invoices} />],
             ['members', 'Parents & students', <Members data={data} clientId={client.id} />],
+            ['notion', 'History from Notion', <NotionHistory clientId={client.id} />],
           ] as const
         ).map(([value, title, body]) => (
           <TabsContent key={value} value={value}>

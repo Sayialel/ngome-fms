@@ -42,7 +42,7 @@ export default function OnlineRun({ data }: { data: RunData }) {
   const partnerCode = useMemo(() => new Map(data.partners.map((p) => [p.id, p.code])), [data]);
 
   // Monthly costs are funded once a month: pre-ticked only if no online run this month has been locked yet.
-  const fundedThisMonth = data.runs.some((r) => r.zone === 'online' && r.status === 'locked' && r.run_date.slice(0, 7) === month);
+  const fundedThisMonth = data.runs.some((r) => r.zone === 'online' && r.status === 'locked' && !r.is_legacy && r.run_date.slice(0, 7) === month);
   const recurring = data.internal.recurring.filter((r) => r.active);
   const provisions = data.internal.provisions.filter((p) => p.status === 'open' && !p.funded);
   const openItems = data.items.filter((i) => i.status === 'open' && (['penalty', 'drawing', 'contribution'].includes(i.kind) || (i.kind === 'reimbursement' && i.pay_via !== 'expense_account')));

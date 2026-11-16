@@ -278,7 +278,9 @@ function Expenses({ data, onAdd }: { data: InternalData; onAdd: (preset?: Recurr
                         <Paperclip className="h-4 w-4" />
                       </Button>
                     )}
-                    {e.run_id ? (
+                    {e.is_legacy ? (
+                      <Badge variant="outline">From Notion</Badge>
+                    ) : e.run_id ? (
                       <Badge variant="secondary">In a run</Badge>
                     ) : (
                       <Button variant="ghost" size="sm" aria-label="Remove expense" disabled={remove.isPending} onClick={() => remove.mutate(e.id)}>

@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { ArrowLeftRight, History, KeyRound, Landmark, LogOut, Settings as SettingsIcon, Users } from 'lucide-react';
+import { Archive, ArrowLeftRight, History, KeyRound, Landmark, LogOut, Settings as SettingsIcon, Users } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import logo from '@/assets/brand/logo-white.png';
@@ -11,6 +11,7 @@ const NAV = [
 ];
 
 const ADMIN = [
+  { to: '/history', label: 'History from Notion', icon: Archive },
   { to: '/settings', label: 'Settings', icon: SettingsIcon },
   { to: '/audit', label: 'Audit log', icon: History },
   { to: '/account', label: 'My account', icon: KeyRound },
