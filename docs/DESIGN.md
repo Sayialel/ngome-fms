@@ -84,7 +84,7 @@ The FMS never changes NUC data. Parents never use the FMS.
 |---|---|
 | People | `partners` (JMS, EL, EW; linked login), `clients` (CA-0001…, family or organisation), `client_members` (NUC parents/students in each client) |
 | NUC mirrors | `nuc_profiles`, `nuc_cohorts`, `nuc_sessions`, `nuc_enrollments`, `nuc_invoices` (incl. line items + session dates), `nuc_invoice_parents`, `nuc_invoice_payments`, `nuc_payment_reports`, `sync_runs` |
-| Tracking | `invoice_tracking` (FMS status: draft, in review, problem, sent, part-paid, paid, closed + notes), `payment_allocations` (payment → invoice line, online/physical, amount), `held_sessions` (amount held per session, released by run) |
+| Tracking | `invoice_tracking` (FMS status: draft, in review, problem, sent, part-paid, paid, closed + notes), `payment_allocations` (payment → invoice line, online/physical, amount), `held_sessions` (amount held per session, released by run), `enrolment_rates` (rate per student per cohort, with effective date, used by the client forecast) |
 | Ledger | `accounts` (Revenue, Holding, Expense, Subscriptions, partner payout accounts, external), `transactions` (date, kind, description, run, source), `entries` (transaction, account, signed amount, client, partner, explanation) |
 | Expenses | `expenses` (item, amount, date, account paid from, category, pre-agreed, receipt), `recurring_expenses`, `provisions` (estimated, then trued up) |
 | Partners | `partner_items` (drawing, penalty, contribution, reimbursement, debt, repayment; amount, due date, status, run) |
@@ -102,6 +102,7 @@ All tables are locked down so only signed-in partners can read them; only EL can
 - **Client statement**: bank-style running balance, invoices with session dates, payments and their allocation, held sessions and releases; per-child breakdown.
 - **Invoices**: every NUC invoice with its FMS tracking status; overdue after 6 days → reminder list for JMS.
 - **Payments to confirm**: NUC payments and parent reports not yet confirmed/allocated.
+- **Client forecast**: per client, per student, per cohort — what we expect to be paid, built from the student's active NUC enrolments and the cohort's scheduled sessions × that student's rate. Shows, by month: expected, invoiced, paid, not yet invoiced and outstanding, so it is clear what is still to come in and what has not been paid. Rates default to the last NUC invoice price for that student and cohort and can be overridden per enrolment (parents pay at different levels).
 - **Cohorts**: expected vs invoiced vs collected vs outstanding per cohort per month.
 
 ### Internal Accounts
