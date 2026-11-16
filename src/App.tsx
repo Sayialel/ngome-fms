@@ -11,6 +11,7 @@ import InternalAccounts from '@/pages/InternalAccounts';
 import Disbursement from '@/pages/Disbursement';
 import Settings from '@/pages/Settings';
 import AuditLog from '@/pages/AuditLog';
+import Account from '@/pages/Account';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false } },
@@ -32,6 +33,7 @@ function Gate() {
         <Route path="/disbursement" element={<Disbursement />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/audit" element={<AuditLog />} />
+        <Route path="/account" element={<Account />} />
         <Route path="*" element={<Navigate to="/clients" replace />} />
       </Route>
     </Routes>

@@ -71,10 +71,12 @@ The FMS never changes NUC data. Parents never use the FMS.
 
 ## 3. NUC link (read-only)
 
-- A read-only database user on the NUC (`fms_reader`), allowed only `SELECT` on: `profiles` (names, emails), `parent_student_links`, `cohorts`, `enrollments`, `sessions`, `attendance`, `invoices`, `invoice_parents`, `invoice_payments`, `payments` (parent reports).
-- An FMS Edge Function `nuc-sync` connects with that user (connection string stored as an FMS secret), copies changes into `nuc_*` mirror tables, and records the sync time.
+- The NUC has one added function, `fms_export`, which returns the finance-related records as read-only data: student and parent profiles (name, email, phone), parent–student links, cohorts, sessions, enrolments, invoices, invoice parents, invoice payments and parent payment reports. It changes nothing in the NUC. The script is in `supabase/nuc/fms_readonly_export.sql`.
+- The export only answers a caller presenting a secret token. The token was generated inside the FMS database and is kept in its Vault; the NUC stores only the token's hash.
+- The FMS database function `sync_nuc()` calls the export and copies the result into the `nuc_*` mirror tables, marking records removed in the NUC, and logs each sync in `sync_runs`.
 - Runs every 15 minutes, on "Sync now", and automatically at the start of each disbursement run.
 - If a NUC invoice or payment changes after it was used in a locked run, the FMS flags it and carries the difference into the next run.
+- To cut the link, drop `fms_export` and the `fms_link` schema on the NUC.
 
 ---
 
@@ -153,7 +155,7 @@ The calculation engine must reproduce, as automated tests:
 ## 8. Build phases
 
 1. **Foundation**: app shell (React, Vite, TypeScript, Tailwind, shadcn — same stack as the NUC), sign-in with one user (EL), database schema, settings, audit log.
-2. **NUC sync**: read-only user on the NUC, sync function, mirror tables, sync status.
+2. **NUC sync**: read-only export on the NUC, sync function, mirror tables, sync status.
 3. **Client Accounts** dashboard.
 4. **Internal Accounts** dashboard.
 5. **Disbursement**: online and physical runs, partner accounts, history, CSV export, verification tests.
@@ -163,5 +165,4 @@ The calculation engine must reproduce, as automated tests:
 ---
 
 ## 9. Open items
-- **NUC database access**: the NUC Supabase project is under a different Supabase account from the FMS. Needed to create `fms_reader`.
 - **Run timing**: assumed money for sessions up to the run date is distributed and later sessions are held (MWB pattern).
