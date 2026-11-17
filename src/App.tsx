@@ -49,7 +49,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
-          <BrowserRouter>
+          <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <Gate />
           </BrowserRouter>
         </AuthProvider>

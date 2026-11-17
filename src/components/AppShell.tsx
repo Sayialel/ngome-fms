@@ -3,6 +3,7 @@ import { Archive, ArrowLeftRight, History, KeyRound, Landmark, LogOut, Settings 
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import logo from '@/assets/brand/logo-white.png';
+import { MotifPattern } from '@/components/Motif';
 
 const NAV = [
   { to: '/clients', label: 'Client Accounts', icon: Users },
@@ -40,23 +41,24 @@ export default function AppShell() {
   const { partner, signOut } = useAuth();
   return (
     <div className="flex min-h-screen">
-      <aside className="hidden w-60 shrink-0 flex-col bg-sidebar p-4 md:flex">
-        <div className="mb-8 px-2">
+      <aside className="relative hidden w-60 shrink-0 flex-col overflow-hidden bg-sidebar p-4 md:flex">
+        <MotifPattern opacity={0.06} />
+        <div className="relative mb-8 px-2">
           <img src={logo} alt="Ngome" className="h-7" />
-          <p className="mt-1 text-xs uppercase tracking-widest text-sidebar-foreground/60">Finance</p>
+          <p className="mt-1 text-xs uppercase tracking-[0.25em] text-sidebar-primary">Finance</p>
         </div>
-        <nav className="space-y-1">
+        <nav className="relative space-y-1">
           {NAV.map((n) => (
             <NavItem key={n.to} {...n} />
           ))}
         </nav>
-        <div className="my-4 border-t border-sidebar-border" />
-        <nav className="space-y-1">
+        <div className="relative my-4 h-px bg-gradient-to-r from-transparent via-sidebar-primary/40 to-transparent" />
+        <nav className="relative space-y-1">
           {ADMIN.map((n) => (
             <NavItem key={n.to} {...n} />
           ))}
         </nav>
-        <div className="mt-auto rounded-md bg-sidebar-accent p-3 text-sm text-sidebar-foreground">
+        <div className="relative mt-auto rounded-md border-l-2 border-sidebar-primary bg-sidebar-accent p-3 text-sm text-sidebar-foreground">
           <p className="font-medium">{partner?.full_name}</p>
           <p className="text-xs text-sidebar-foreground/60">
             {partner?.code}

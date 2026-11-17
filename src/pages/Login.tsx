@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
 import emblem from '@/assets/brand/emblem-gold.png';
+import { MotifPattern } from '@/components/Motif';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -22,11 +23,12 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-sidebar p-4">
-      <Card className="w-full max-w-sm">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-sidebar p-4">
+      <MotifPattern opacity={0.08} />
+      <Card className="relative w-full max-w-sm border-t-4 border-t-sidebar-primary shadow-2xl">
         <CardHeader className="items-center text-center">
           <img src={emblem} alt="" className="mb-2 h-14 w-14" />
-          <CardTitle className="text-2xl">Ngome Finance</CardTitle>
+          <CardTitle className="font-display text-2xl">Ngome Finance</CardTitle>
           <CardDescription>For Ngome partners only.</CardDescription>
         </CardHeader>
         <CardContent>
